@@ -116,8 +116,7 @@ LIMITLESS_MCP_COMMAND=...   # e.g. npx -y @limitless/mcp-server
 LIMITLESS_API_KEY=...
 NOTION_MCP_COMMAND=...
 NOTION_API_KEY=...
-DATABASE_PATH=./data/product-advisor.db
-UPLOADS_DIR=./data/uploads`}
+DATABASE_PATH=./data/product-advisor.db`}
         </pre>
       </section>
     </div>

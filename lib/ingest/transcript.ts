@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import mammoth from "mammoth";
@@ -24,8 +23,6 @@ export interface IngestInput {
   metadata?: Record<string, unknown>;
 }
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR || "./data/uploads";
-
 export async function ingestTranscript(input: IngestInput): Promise<IngestResult> {
   const hash = sha256(input.buffer);
   const existing = db()
@@ -41,24 +38,19 @@ export async function ingestTranscript(input: IngestInput): Promise<IngestResult
   const ext = path.extname(input.filename).toLowerCase();
   const { utterances, needsOcr } = await parseByExt(ext, input.buffer);
 
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
-  const storageName = `${Date.now()}-${nanoid(8)}${ext || ".txt"}`;
-  const storagePath = path.join(UPLOADS_DIR, storageName);
-  await fs.writeFile(storagePath, input.buffer);
-
   const artifactId = nanoid();
   const now = Date.now();
   const title = input.title || input.filename;
 
   db().prepare(
-    `INSERT INTO artifacts (id, kind, source, original_filename, mime_type, storage_path, byte_size, title, description, metadata_json, content_hash, created_at)
+    `INSERT INTO artifacts (id, kind, source, original_filename, mime_type, file_blob, byte_size, title, description, metadata_json, content_hash, created_at)
      VALUES (?, 'transcript', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     artifactId,
     input.source,
     input.filename,
     input.mimeType || null,
-    storagePath,
+    input.buffer,
     input.buffer.byteLength,
     title,
     input.description || "",

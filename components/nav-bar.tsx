@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils/cn";
 const LINKS = [
   { href: "/chat", label: "Chat" },
   { href: "/artifacts", label: "Artifacts" },
+  { href: "/memory", label: "Memory" },
   { href: "/profile", label: "Profile" },
   { href: "/setup", label: "Setup" },
 ];

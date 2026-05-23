@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
   original_filename   TEXT,
   mime_type           TEXT,
   storage_path        TEXT,
+  file_blob           BLOB,
   byte_size           INTEGER DEFAULT 0,
   title               TEXT NOT NULL,
   description         TEXT NOT NULL DEFAULT '',
@@ -106,6 +107,35 @@ CREATE TABLE IF NOT EXISTS notion_cache (
 CREATE TABLE IF NOT EXISTS settings (
   key    TEXT PRIMARY KEY,
   value  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS memory_documents (
+  id             TEXT PRIMARY KEY,
+  slug           TEXT NOT NULL UNIQUE,
+  title          TEXT NOT NULL,
+  content        TEXT NOT NULL DEFAULT '',
+  tags_json      TEXT NOT NULL DEFAULT '[]',
+  created_by     TEXT NOT NULL DEFAULT 'user',
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_memory_updated ON memory_documents(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS memory_revisions (
+  id            TEXT PRIMARY KEY,
+  document_id   TEXT NOT NULL REFERENCES memory_documents(id) ON DELETE CASCADE,
+  prev_content  TEXT,
+  next_content  TEXT,
+  changed_by    TEXT NOT NULL,
+  message_id    TEXT,
+  rationale     TEXT,
+  created_at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_memory_rev_doc ON memory_revisions(document_id, created_at DESC);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS memory_documents_fts USING fts5(
+  doc_id UNINDEXED, title, content, tags,
+  tokenize='porter unicode61'
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (

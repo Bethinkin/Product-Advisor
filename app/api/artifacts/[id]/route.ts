@@ -6,11 +6,19 @@ export const runtime = "nodejs";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const a = db().prepare(`SELECT * FROM artifacts WHERE id = ?`).get(id) as
-    | Record<string, unknown>
-    | undefined;
+  const a = db()
+    .prepare(
+      `SELECT id, kind, source, original_filename, mime_type, storage_path, byte_size,
+              title, description, metadata_json, content_hash, created_at,
+              (file_blob IS NOT NULL) as has_blob
+         FROM artifacts WHERE id = ?`,
+    )
+    .get(id) as Record<string, unknown> | undefined;
   if (!a) return new Response("Not found", { status: 404 });
-  const result: Record<string, unknown> = { ...a, metadata: JSON.parse(String(a.metadata_json || "{}")) };
+  const result: Record<string, unknown> = {
+    ...a,
+    metadata: JSON.parse(String(a.metadata_json || "{}")),
+  };
 
   if (a.kind === "transcript") {
     const chunks = db()
@@ -37,8 +45,8 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   const a = db().prepare(`SELECT storage_path FROM artifacts WHERE id = ?`).get(id) as
     | { storage_path: string | null }
     | undefined;
+  // Best-effort cleanup of legacy on-disk file (pre-migration); blob is dropped with the row.
   if (a?.storage_path) await fs.unlink(a.storage_path).catch(() => undefined);
-  // Drop CSV table if any
   const t = db().prepare(`SELECT table_name FROM csv_tables WHERE artifact_id = ?`).get(id) as
     | { table_name: string }
     | undefined;

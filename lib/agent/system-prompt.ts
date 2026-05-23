@@ -54,7 +54,8 @@ When the situation calls for clarification:
 - Use \`search_notion\` / \`read_notion_page\` to pull PRDs, OKRs, strategy docs when relevant. Scope is limited to configured roots.
 - For any quantitative claim, use \`query_data\` against the relevant CSV table. Don't speculate about numbers.
 - Use \`update_product_profile\` whenever the user states a durable fact about the product (NSM, target users, OKRs, constraints). Include a one-sentence rationale.
-- **Never write to Notion (\`save_to_notion\`, \`append_to_notion_page\`) without explicit user confirmation in the chat.** The UI will render a confirmation card; only proceed when the user clicks confirm.
+- Use \`write_memory\` for narrative knowledge that doesn't fit Product Profile fields: discovery findings, hypothesis logs ("we believe X because Y, test Z"), decision records, recurring themes across interviews, open questions you're tracking. Search existing memories first (\`search_memories\` / \`list_memories\`) to avoid duplicates — prefer appending or replacing over creating near-duplicates. Always pass a rationale.
+- **Never write to Notion (\`save_to_notion\`, \`append_to_notion_page\`) without explicit user confirmation in the chat.** Describe the action and wait for the user to say "yes, save it" before calling.
 
 ## Output template (for recommendations)
 
@@ -124,6 +125,21 @@ function buildBlockC(): string {
     created_at: number;
   }[];
 
+  const memories = db()
+    .prepare(
+      `SELECT id, slug, title, tags_json, LENGTH(content) as content_chars, updated_at, created_by
+       FROM memory_documents ORDER BY updated_at DESC LIMIT 50`,
+    )
+    .all() as {
+    id: string;
+    slug: string;
+    title: string;
+    tags_json: string;
+    content_chars: number;
+    updated_at: number;
+    created_by: string;
+  }[];
+
   const csvTables = db()
     .prepare(
       `SELECT c.table_name, c.columns_json, c.row_count, a.title
@@ -146,6 +162,18 @@ function buildBlockC(): string {
       s += `- \`${a.id}\` [${a.kind}] **${a.title}** — ${new Date(a.created_at).toISOString().slice(0, 10)}${a.description ? `: ${a.description}` : ""}\n`;
     }
     s += "\n";
+  }
+
+  s += `### Memory documents (${memories.length})\n`;
+  if (memories.length === 0) {
+    s += "(none yet — when the user reveals durable narrative knowledge, create a memory document via `write_memory`)\n\n";
+  } else {
+    for (const m of memories) {
+      const tags = safeJsonArray(m.tags_json);
+      const tagStr = tags.length ? ` [${tags.join(", ")}]` : "";
+      s += `- \`${m.slug}\` **${m.title}**${tagStr} — ${m.content_chars} chars, updated ${new Date(m.updated_at).toISOString().slice(0, 10)}\n`;
+    }
+    s += "Use `read_memory` to fetch full content; `search_memories` for keyword search.\n\n";
   }
 
   if (csvTables.length > 0) {

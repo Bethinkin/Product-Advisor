@@ -10,6 +10,26 @@ const schema = z.object({
   max_chars: z.number().int().min(100).max(40000).optional(),
 });
 
+interface ArtifactRow {
+  id: string;
+  kind: string;
+  title: string;
+  storage_path: string | null;
+  file_blob: Buffer | null;
+}
+
+async function loadBytes(a: ArtifactRow): Promise<Buffer | null> {
+  if (a.file_blob) return a.file_blob;
+  if (a.storage_path) {
+    try {
+      return await fs.readFile(a.storage_path);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export const readArtifact: ToolDef<typeof schema> = {
   name: "read_artifact",
   description:
@@ -17,10 +37,8 @@ export const readArtifact: ToolDef<typeof schema> = {
   schema,
   execute: async (args) => {
     const a = db()
-      .prepare("SELECT id, kind, title, storage_path FROM artifacts WHERE id = ?")
-      .get(args.artifact_id) as
-      | { id: string; kind: string; title: string; storage_path: string | null }
-      | undefined;
+      .prepare("SELECT id, kind, title, storage_path, file_blob FROM artifacts WHERE id = ?")
+      .get(args.artifact_id) as ArtifactRow | undefined;
     if (!a) throw new Error(`Artifact ${args.artifact_id} not found`);
 
     const maxChars = args.max_chars ?? 8000;
@@ -61,9 +79,11 @@ export const readArtifact: ToolDef<typeof schema> = {
       };
     }
 
+    const bytes = await loadBytes(a);
+    if (!bytes) return { artifact_id: a.id, title: a.title, kind: a.kind, text: "" };
+    const text = bytes.toString("utf-8");
+
     if (a.kind === "csv") {
-      if (!a.storage_path) return { error: "CSV has no file backing" };
-      const text = await fs.readFile(a.storage_path, "utf-8");
       return {
         artifact_id: a.id,
         title: a.title,
@@ -75,19 +95,14 @@ export const readArtifact: ToolDef<typeof schema> = {
       };
     }
 
-    // Generic file fallback
-    if (a.storage_path) {
-      const text = await fs.readFile(a.storage_path, "utf-8").catch(() => "");
-      return {
-        artifact_id: a.id,
-        title: a.title,
-        kind: a.kind,
-        text: text.slice(args.start_char ?? 0, (args.start_char ?? 0) + maxChars),
-        truncated: text.length > (args.start_char ?? 0) + maxChars,
-        total_chars: text.length,
-      };
-    }
-
-    return { artifact_id: a.id, title: a.title, kind: a.kind, text: "" };
+    const offset = args.start_char ?? 0;
+    return {
+      artifact_id: a.id,
+      title: a.title,
+      kind: a.kind,
+      text: text.slice(offset, offset + maxChars),
+      truncated: text.length > offset + maxChars,
+      total_chars: text.length,
+    };
   },
 };

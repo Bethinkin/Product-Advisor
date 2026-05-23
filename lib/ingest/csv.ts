@@ -1,11 +1,7 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { nanoid } from "nanoid";
 import Papa from "papaparse";
 import { db } from "../db/client";
 import { sha256 } from "../utils/hash";
-
-const UPLOADS_DIR = process.env.UPLOADS_DIR || "./data/uploads";
 
 export type ColumnType = "integer" | "real" | "text" | "iso_date";
 
@@ -62,11 +58,6 @@ export async function ingestCsv(input: {
   });
   dedupeSanitized(columns);
 
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
-  const storageName = `${Date.now()}-${nanoid(8)}.csv`;
-  const storagePath = path.join(UPLOADS_DIR, storageName);
-  await fs.writeFile(storagePath, input.buffer);
-
   const artifactId = nanoid();
   const tableName = `csv_${artifactId.replace(/[^a-zA-Z0-9]/g, "")}`;
   const now = Date.now();
@@ -75,13 +66,13 @@ export async function ingestCsv(input: {
   const colDefs = columns.map((c) => `"${c.sanitized}" ${sqlType(c.type)}`).join(", ");
   const tx = db().transaction(() => {
     db().prepare(
-      `INSERT INTO artifacts (id, kind, source, original_filename, mime_type, storage_path, byte_size, title, description, metadata_json, content_hash, created_at)
+      `INSERT INTO artifacts (id, kind, source, original_filename, mime_type, file_blob, byte_size, title, description, metadata_json, content_hash, created_at)
        VALUES (?, 'csv', ?, ?, 'text/csv', ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       artifactId,
       input.source,
       input.filename,
-      storagePath,
+      input.buffer,
       input.buffer.byteLength,
       title,
       input.description || "",

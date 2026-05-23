@@ -15,6 +15,13 @@ import {
   syncProfileToNotion,
 } from "./notion";
 import { saveRecommendation } from "./save-recommendation";
+import {
+  listMemoriesTool,
+  readMemoryTool,
+  searchMemoriesTool,
+  writeMemoryTool,
+  deleteMemoryTool,
+} from "./memory";
 
 // Erase the invariant schema generic so heterogeneous tools live in one array.
 export const ALL_TOOLS: AnyTool[] = ([
@@ -24,6 +31,11 @@ export const ALL_TOOLS: AnyTool[] = ([
   queryData,
   readProductProfile,
   updateProductProfile,
+  listMemoriesTool,
+  readMemoryTool,
+  searchMemoriesTool,
+  writeMemoryTool,
+  deleteMemoryTool,
   searchLimitlessTool,
   listNotionRoots,
   searchNotion,
